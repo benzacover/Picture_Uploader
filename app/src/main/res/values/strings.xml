@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Picture Uploader</string>
+
+    <!-- Main Screen -->
+    <string name="btn_capture">撮影</string>
+    <string name="btn_sign_in">Googleログイン</string>
+    <string name="btn_sign_out">ログアウト</string>
+    <string name="btn_settings">設定</string>
+    <string name="label_signed_in">ログイン中: %s</string>
+    <string name="label_not_signed_in">未ログイン</string>
+    <string name="label_upload_status">アップロード状況</string>
+    <string name="label_pending_count">待機中: %d 件</string>
+    <string name="label_uploaded_count">完了: %d 件</string>
+    <string name="label_failed_count">失敗: %d 件</string>
+
+    <!-- Settings Screen -->
+    <string name="settings_title">設定</string>
+    <string name="label_folder_id">共有ドライブ フォルダID</string>
+    <string name="hint_folder_id">フォルダIDを入力</string>
+    <string name="btn_save">保存</string>
+    <string name="msg_folder_id_saved">フォルダIDを保存しました</string>
+    <string name="msg_folder_id_empty">フォルダIDを入力してください</string>
+
+    <!-- Error Messages -->
+    <string name="error_auth_failed">Googleアカウントの認証に失敗しました。再度ログインしてください。</string>
+    <string name="error_drive_permission">Google Driveへのアクセス権限がありません。権限を許可してください。</string>
+    <string name="error_folder_id_invalid">指定されたフォルダIDが見つかりません。設定を確認してください。</string>
+    <string name="error_network">ネットワークに接続されていません。接続後に自動的にアップロードします。</string>
+    <string name="error_upload_failed">アップロードに失敗しました。自動的に再試行します。</string>
+    <string name="error_camera_permission">カメラの使用許可が必要です。</string>
+    <string name="error_capture_failed">撮影に失敗しました。</string>
+    <string name="error_not_signed_in">先にGoogleアカウントにログインしてください。</string>
+    <string name="error_folder_id_not_set">設定画面でフォルダIDを入力してください。</string>
+
+    <!-- Success Messages -->
+    <string name="msg_capture_success">撮影完了。アップロードを開始します。</string>
+    <string name="msg_sign_in_success">ログインしました。</string>
+    <string name="msg_sign_out_success">ログアウトしました。</string>
+</resources>

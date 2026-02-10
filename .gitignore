@@ -1,0 +1,24 @@
+# リリース署名（秘密情報）
+keystore.properties
+*.keystore
+
+# Android / Gradle
+*.iml
+.gradle/
+local.properties
+build/
+app/build/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# IDE
+.idea/
+*.hprof
+
+# アプリが端末内に出力するログ（pull で取得したコピー）
+upload_failures.log
+
+# OS
+.DS_Store
+Thumbs.db
