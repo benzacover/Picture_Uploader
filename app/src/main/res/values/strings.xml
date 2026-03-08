@@ -4,6 +4,8 @@
 
     <!-- Main Screen -->
     <string name="btn_capture">撮影</string>
+    <string name="tap_mode_tap_to_capture">タップで撮影</string>
+    <string name="tap_mode_focus_only">ピントのみ</string>
     <string name="btn_sign_in">Googleログイン</string>
     <string name="btn_sign_out">ログアウト</string>
     <string name="btn_settings">設定</string>
@@ -16,11 +18,22 @@
 
     <!-- Settings Screen -->
     <string name="settings_title">設定</string>
+    <string name="settings_account">アカウント</string>
+    <string name="settings_account_desc">ログイン・ログアウト</string>
+    <string name="settings_drive_folder">アップロード先（共有ドライブ）</string>
     <string name="label_folder_id">共有ドライブ フォルダID</string>
     <string name="hint_folder_id">フォルダIDを入力</string>
     <string name="btn_save">保存</string>
     <string name="msg_folder_id_saved">フォルダIDを保存しました</string>
     <string name="msg_folder_id_empty">フォルダIDを入力してください</string>
+    <string name="btn_pick_folder">Driveでフォルダを選択</string>
+    <string name="folder_picker_my_drive">マイドライブ</string>
+    <string name="folder_picker_select_this">このフォルダを選択</string>
+    <string name="folder_picker_title">アップロード先フォルダを選択</string>
+    <string name="folder_picker_loading">読み込み中…</string>
+    <string name="folder_picker_error">一覧の取得に失敗しました</string>
+    <string name="folder_picker_not_signed_in">ログイン後に選択できます</string>
+    <string name="folder_picker_need_drive_auth">Driveへのアクセス許可が必要です。メイン画面で一度ログアウトし、再ログインしてDriveの許可を付与してください。</string>
 
     <!-- Error Messages -->
     <string name="error_auth_failed">Googleアカウントの認証に失敗しました。再度ログインしてください。</string>
@@ -34,6 +47,7 @@
     <string name="error_folder_id_not_set">設定画面でフォルダIDを入力してください。</string>
 
     <!-- Success Messages -->
+    <string name="msg_focus_triggered">ピントを合わせました</string>
     <string name="msg_capture_success">撮影完了。アップロードを開始します。</string>
     <string name="msg_sign_in_success">ログインしました。</string>
     <string name="msg_sign_out_success">ログアウトしました。</string>

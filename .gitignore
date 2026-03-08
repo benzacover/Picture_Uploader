@@ -18,6 +18,7 @@ captures/
 
 # アプリが端末内に出力するログ（pull で取得したコピー）
 upload_failures.log
+upload_failures_emulated.log
 
 # OS
 .DS_Store

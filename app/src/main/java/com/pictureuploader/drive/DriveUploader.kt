@@ -4,12 +4,16 @@ import android.content.Context
 import android.util.Log
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.client.http.FileContent
+import com.google.api.client.http.HttpRequest
+import com.google.api.client.http.HttpRequestInitializer
 import com.google.api.client.http.HttpResponseException
 import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
 import com.google.api.services.drive.model.File as DriveFile
+import com.pictureuploader.auth.AuthManager
+import com.pictureuploader.util.UploadFailureLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -59,6 +63,15 @@ class DriveUploader(private val context: Context) {
         accountEmail: String,
         folderId: String
     ): UploadResult = withContext(Dispatchers.IO) {
+        if (accountEmail.isNullOrBlank()) {
+            Log.e(TAG, "Account email is null or blank; cannot upload.")
+            return@withContext UploadResult.Failure(
+                UploadFailureReason.UNAUTHORIZED,
+                "Account email not set (sign in required)",
+                retriable = true
+            )
+        }
+
         val normalizedFolderId = normalizeFolderId(folderId)
         if (normalizedFolderId.isNullOrBlank()) {
             Log.e(TAG, "Folder ID invalid or empty: [$folderId]")
@@ -133,6 +146,7 @@ class DriveUploader(private val context: Context) {
         folderId: String,
         scopes: List<String>
     ): UploadResult {
+        val detailPrefix = "path=${localFile.absolutePath} folderId=$folderId"
         return try {
             val driveService = buildDriveService(accountEmail, scopes)
             val driveFileMetadata = DriveFile().apply {
@@ -169,16 +183,20 @@ class DriveUploader(private val context: Context) {
                 UploadFailureReason.SERVER_ERROR
             )
             Log.e(TAG, "Drive API error: $code ${e.statusMessage} -> $reason", e)
+            UploadFailureLogger.log(context, reason.name, "$detailPrefix msg=HTTP $code ${e.statusMessage}", e)
             UploadResult.Failure(reason, "HTTP $code: ${e.statusMessage}", retriable)
         } catch (e: SocketTimeoutException) {
             Log.e(TAG, "Network timeout", e)
+            UploadFailureLogger.log(context, UploadFailureReason.NETWORK_ERROR.name, "$detailPrefix msg=Timeout ${e.message}", e)
             UploadResult.Failure(UploadFailureReason.NETWORK_ERROR, "Timeout: ${e.message}", retriable = true)
         } catch (e: IOException) {
             Log.e(TAG, "Network/IO error", e)
             val msg = e.message ?: e.javaClass.simpleName
+            UploadFailureLogger.log(context, UploadFailureReason.NETWORK_ERROR.name, "$detailPrefix msg=$msg", e)
             UploadResult.Failure(UploadFailureReason.NETWORK_ERROR, msg, retriable = true)
         } catch (e: Exception) {
             Log.e(TAG, "Upload error", e)
+            UploadFailureLogger.log(context, UploadFailureReason.UNKNOWN.name, "$detailPrefix msg=${e.javaClass.simpleName}: ${e.message}", e)
             UploadResult.Failure(
                 UploadFailureReason.UNKNOWN,
                 "${e.javaClass.simpleName}: ${e.message}",
@@ -188,14 +206,39 @@ class DriveUploader(private val context: Context) {
     }
 
     private fun buildDriveService(accountEmail: String, scopes: List<String>): Drive {
-        val credential = GoogleAccountCredential.usingOAuth2(context, scopes)
-        credential.selectedAccountName = accountEmail
-        return Drive.Builder(
-            NetHttpTransport(),
-            GsonFactory.getDefaultInstance(),
-            credential
-        )
-            .setApplicationName(APP_NAME)
-            .build()
+        val prefs = context.getSharedPreferences(AuthManager.PREFS_NAME, Context.MODE_PRIVATE)
+        val accessToken = prefs.getString(AuthManager.KEY_DRIVE_ACCESS_TOKEN, null)?.trim()?.ifBlank { null }
+
+        return if (!accessToken.isNullOrEmpty()) {
+            Log.d(TAG, "Using stored access token for upload")
+            val initializer = HttpRequestInitializer { request: HttpRequest ->
+                request.headers.authorization = "Bearer $accessToken"
+            }
+            Drive.Builder(
+                NetHttpTransport(),
+                GsonFactory.getDefaultInstance(),
+                initializer
+            )
+                .setApplicationName(APP_NAME)
+                .build()
+        } else {
+            Log.d(TAG, "Using GoogleAccountCredential for upload")
+            val name = accountEmail.trim().ifBlank { null }
+            if (name.isNullOrEmpty()) {
+                throw IllegalArgumentException("Account email must not be null or blank for Drive API")
+            }
+            if (!name.contains("@")) {
+                throw IllegalArgumentException("Account name must be an email address (got non-email); try sign out and sign in again")
+            }
+            val credential = GoogleAccountCredential.usingOAuth2(context, scopes)
+            credential.selectedAccountName = name
+            Drive.Builder(
+                NetHttpTransport(),
+                GsonFactory.getDefaultInstance(),
+                credential
+            )
+                .setApplicationName(APP_NAME)
+                .build()
+        }
     }
 }

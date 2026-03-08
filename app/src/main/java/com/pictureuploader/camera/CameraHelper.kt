@@ -3,14 +3,22 @@ package com.pictureuploader.camera
 import android.content.Context
 import android.os.Environment
 import android.util.Log
+import android.util.Size
+import android.media.MediaActionSound
+import android.media.MediaPlayer
+import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
+import androidx.camera.core.MeteringPoint
 import androidx.camera.core.Preview
+import androidx.camera.core.SurfaceOrientedMeteringPointFactory
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
+import com.pictureuploader.R
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -29,10 +37,14 @@ class CameraHelper(private val context: Context) {
         private const val TAG = "CameraHelper"
         private const val FILENAME_FORMAT = "yyyy-MM-dd_HH-mm-ss"
         private const val FILENAME_SUFFIX = "_picture.jpg"
+        /** 撮影解像度（幅 x 高さ）= 3:4 縦 */
+        private val CAPTURE_SIZE = Size(3000, 4000)
     }
 
     private var imageCapture: ImageCapture? = null
     private var cameraProvider: ProcessCameraProvider? = null
+    private var camera: Camera? = null
+    private val mediaActionSound = MediaActionSound()
 
     /**
      * カメラのプレビューを開始する。
@@ -48,6 +60,7 @@ class CameraHelper(private val context: Context) {
                 cameraProvider = provider
 
                 val preview = Preview.Builder()
+                    .setTargetResolution(CAPTURE_SIZE)
                     .build()
                     .also {
                         it.surfaceProvider = previewView.surfaceProvider
@@ -55,12 +68,13 @@ class CameraHelper(private val context: Context) {
 
                 imageCapture = ImageCapture.Builder()
                     .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+                    .setTargetResolution(CAPTURE_SIZE)
                     .build()
 
                 val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
 
                 provider.unbindAll()
-                provider.bindToLifecycle(
+                camera = provider.bindToLifecycle(
                     lifecycleOwner,
                     cameraSelector,
                     preview,
@@ -68,10 +82,57 @@ class CameraHelper(private val context: Context) {
                 )
 
                 Log.d(TAG, "Camera started successfully")
+                try {
+                    mediaActionSound.load(MediaActionSound.SHUTTER_CLICK)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Could not load shutter sound", e)
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Camera start failed", e)
             }
         }, ContextCompat.getMainExecutor(context))
+    }
+
+    /**
+     * 指定した画面座標にピントを合わせる。
+     * PreviewView 上のタップ位置 (x, y) を渡す。
+     * @return ピント合わせを開始した場合 true（カメラ未準備の場合は false）
+     */
+    fun focusAt(previewView: PreviewView, touchX: Float, touchY: Float): Boolean {
+        val cam = camera ?: return false
+        val w = previewView.width.toFloat()
+        val h = previewView.height.toFloat()
+        if (w <= 0f || h <= 0f) return false
+        val factory = SurfaceOrientedMeteringPointFactory(w, h)
+        val point: MeteringPoint = factory.createPoint(touchX, touchY)
+        val action = FocusMeteringAction.Builder(point, FocusMeteringAction.FLAG_AF)
+            .setAutoCancelDuration(2, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+        cam.cameraControl.startFocusAndMetering(action)
+        Log.d(TAG, "Focus at ($touchX, $touchY)")
+        return true
+    }
+
+    /**
+     * 撮影時にシャッター音を再生。res/raw/shutter_click があればそれを、なければシステムの SHUTTER_CLICK を使用。
+     */
+    private fun playShutterSound() {
+        try {
+            val resId = context.resources.getIdentifier("shutter_click", "raw", context.packageName)
+            if (resId != 0) {
+                val mp = MediaPlayer.create(context, resId)
+                mp?.setOnCompletionListener { it.release() }
+                mp?.start()
+                return
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Raw shutter sound failed", e)
+        }
+        try {
+            mediaActionSound.play(MediaActionSound.SHUTTER_CLICK)
+        } catch (e: Exception) {
+            Log.w(TAG, "MediaActionSound failed", e)
+        }
     }
 
     /**
@@ -96,6 +157,8 @@ class CameraHelper(private val context: Context) {
         val photoFile = createPhotoFile()
 
         val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
+
+        playShutterSound()
 
         capture.takePicture(
             outputOptions,
@@ -139,6 +202,7 @@ class CameraHelper(private val context: Context) {
     fun shutdown() {
         cameraProvider?.unbindAll()
         cameraProvider = null
+        camera = null
         imageCapture = null
     }
 }

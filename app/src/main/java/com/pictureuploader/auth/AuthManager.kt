@@ -41,6 +41,10 @@ class AuthManager(private val context: Context) {
          * Drive APIスコープ。共有ドライブなど指定フォルダへのアップロードには DRIVE が必要。
          */
         val DRIVE_SCOPE = DriveScopes.DRIVE
+
+        const val PREFS_NAME = "picture_uploader_prefs"
+        const val KEY_DRIVE_ACCESS_TOKEN = "drive_access_token"
+        const val KEY_ACCOUNT_EMAIL = "account_email"
     }
 
     private val credentialManager = CredentialManager.create(context)
@@ -53,6 +57,23 @@ class AuthManager(private val context: Context) {
     /** Drive API用アクセストークン */
     var accessToken: String? = null
         private set
+
+    init {
+        restoreFromPrefs()
+    }
+
+    /**
+     * SharedPreferences からアカウント・トークンを復元する。
+     * 他画面（設定）でログインした場合やアプリ再起動後に、メイン画面で isSignedIn() が正しく true になるようにする。
+     */
+    fun restoreFromPrefs() {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val email = prefs.getString(KEY_ACCOUNT_EMAIL, null)?.trim()?.ifBlank { null }
+        val token = prefs.getString(KEY_DRIVE_ACCESS_TOKEN, null)?.trim()?.ifBlank { null }
+        if (email != null) currentAccountEmail = email
+        if (token != null) accessToken = token
+        Log.d(TAG, "restoreFromPrefs: email=${email?.take(3)}***, hasToken=${token != null}")
+    }
 
     /**
      * Credential Manager でGoogleアカウントにサインインする。
@@ -91,12 +112,35 @@ class AuthManager(private val context: Context) {
             credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
         ) {
             val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
-            currentAccountEmail = googleIdTokenCredential.id
+            // Drive API の account name はメールである必要がある。id は数値IDを返す場合があるため idToken から email を取得する。
+            val email = getEmailFromIdToken(googleIdTokenCredential.idToken)
+                ?: googleIdTokenCredential.id.trim().ifBlank { null }
+            currentAccountEmail = email
+            persistAccountEmail(email)
             Log.d(TAG, "Signed in as: $currentAccountEmail")
             return currentAccountEmail
         }
         Log.e(TAG, "Unexpected credential type: ${credential.type}")
         return null
+    }
+
+    /**
+     * IDトークン（JWT）の payload から email クレームを取得する。
+     */
+    private fun getEmailFromIdToken(idToken: String?): String? {
+        if (idToken.isNullOrBlank()) return null
+        val parts = idToken.split(".")
+        if (parts.size < 2) return null
+        return try {
+            var payloadB64 = parts[1].replace('-', '+').replace('_', '/')
+            while (payloadB64.length % 4 != 0) payloadB64 += "="
+            val payload = android.util.Base64.decode(payloadB64, android.util.Base64.DEFAULT)
+            val json = org.json.JSONObject(String(payload, Charsets.UTF_8))
+            json.optString("email").trim().ifBlank { null }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to get email from idToken", e)
+            null
+        }
     }
 
     /**
@@ -129,6 +173,7 @@ class AuthManager(private val context: Context) {
             } else {
                 // 既に認可済み
                 accessToken = result.accessToken
+                persistAccessToken(result.accessToken)
                 Log.d(TAG, "Drive authorization granted (cached)")
                 result
             }
@@ -138,6 +183,20 @@ class AuthManager(private val context: Context) {
         }
     }
 
+    private fun persistAccessToken(token: String?) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_DRIVE_ACCESS_TOKEN, token)
+            .apply()
+    }
+
+    private fun persistAccountEmail(email: String?) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_ACCOUNT_EMAIL, email)
+            .apply()
+    }
+
     /**
      * 認可画面からの結果を処理する
      */
@@ -145,6 +204,7 @@ class AuthManager(private val context: Context) {
         return try {
             val result = authorizationClient.getAuthorizationResultFromIntent(data)
             accessToken = result.accessToken
+            persistAccessToken(result.accessToken)
             Log.d(TAG, "Drive authorization granted via consent")
             true
         } catch (e: Exception) {
@@ -159,6 +219,8 @@ class AuthManager(private val context: Context) {
     fun signOut() {
         currentAccountEmail = null
         accessToken = null
+        persistAccessToken(null)
+        persistAccountEmail(null)
         Log.d(TAG, "Signed out")
     }
 

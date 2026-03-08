@@ -113,6 +113,12 @@ class UploadWorker(
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Unexpected error uploading: ${photo.localPath}", e)
+                UploadFailureLogger.log(
+                    applicationContext,
+                    "UNKNOWN",
+                    "path=${photo.localPath} unexpected=${e.javaClass.simpleName}: ${e.message}",
+                    e
+                )
                 repository.markFailed(photo.id)
                 hasFailure = true
             }

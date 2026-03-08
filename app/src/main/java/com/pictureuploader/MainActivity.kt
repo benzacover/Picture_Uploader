@@ -6,6 +6,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
+import android.view.MotionEvent
+import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -39,6 +41,10 @@ class MainActivity : AppCompatActivity() {
         private const val TAG = "MainActivity"
         private const val PREFS_NAME = "picture_uploader_prefs"
         private const val KEY_ACCOUNT_EMAIL = "account_email"
+        private const val KEY_TAP_TO_CAPTURE = "tap_to_capture"
+        private const val TAP_CAPTURE_DELAY_MS = 350L
+        private const val FOCUS_INDICATOR_SIZE_DP = 80f
+        private const val FOCUS_INDICATOR_VISIBLE_MS = 1800L
     }
 
     private lateinit var binding: ActivityMainBinding
@@ -84,6 +90,8 @@ class MainActivity : AppCompatActivity() {
         repository = PhotoRepository(this)
 
         setupButtons()
+        setupTapModeToggle()
+        setupPreviewTapToFocus()
         requestCameraPermission()
         restoreAuthState()
         observeUploadStatus()
@@ -92,6 +100,12 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         cameraHelper.shutdown()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        authManager.restoreFromPrefs()
+        updateAuthUI()
     }
 
     // =============================================
@@ -104,19 +118,73 @@ class MainActivity : AppCompatActivity() {
             onCaptureClicked()
         }
 
-        // ログインボタン
-        binding.btnSignIn.setOnClickListener {
-            if (authManager.isSignedIn()) {
-                onSignOut()
-            } else {
-                onSignIn()
-            }
-        }
-
-        // 設定ボタン
+        // 設定ボタン（ログイン・ログアウトは設定画面へ移動済み）
         binding.btnSettings.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
+    }
+
+    private fun setupTapModeToggle() {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        // トグルは非表示。デフォルトは「タップで撮影」
+        val tapToCapture = prefs.getBoolean(KEY_TAP_TO_CAPTURE, true)
+        binding.toggleTapMode.check(
+            if (tapToCapture) R.id.btnTapToCapture else R.id.btnTapFocusOnly
+        )
+        binding.toggleTapMode.addOnButtonCheckedListener { _, checkedId, isChecked ->
+            if (!isChecked) return@addOnButtonCheckedListener
+            val tapToCaptureNew = checkedId == R.id.btnTapToCapture
+            prefs.edit().putBoolean(KEY_TAP_TO_CAPTURE, tapToCaptureNew).apply()
+        }
+    }
+
+    private fun setupPreviewTapToFocus() {
+        binding.previewView.setOnTouchListener { v, event ->
+            if (event.action == MotionEvent.ACTION_UP) {
+                val x = event.x
+                val y = event.y
+                val focused = cameraHelper.focusAt(binding.previewView, x, y)
+                if (focused) {
+                    showFocusIndicator(x, y)
+                }
+                val tapToCapture = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    .getBoolean(KEY_TAP_TO_CAPTURE, true)
+                if (tapToCapture) {
+                    v.postDelayed({ onCaptureClicked() }, TAP_CAPTURE_DELAY_MS)
+                }
+            }
+            false
+        }
+    }
+
+    /**
+     * タップ位置にフォーカス枠（四角）を表示し、フォーカスが合っていくようなアニメーションを行う。
+     */
+    private fun showFocusIndicator(tapX: Float, tapY: Float) {
+        val indicator = binding.focusIndicatorView
+        indicator.animate().cancel()
+        val sizePx = FOCUS_INDICATOR_SIZE_DP * resources.displayMetrics.density
+        indicator.x = tapX - sizePx / 2f
+        indicator.y = tapY - sizePx / 2f
+        indicator.scaleX = 0.6f
+        indicator.scaleY = 0.6f
+        indicator.alpha = 0f
+        indicator.visibility = View.VISIBLE
+        indicator.animate()
+            .scaleX(1f)
+            .scaleY(1f)
+            .alpha(1f)
+            .setDuration(200)
+            .withEndAction {
+                indicator.postDelayed({
+                    indicator.animate()
+                        .alpha(0f)
+                        .setDuration(300)
+                        .withEndAction { indicator.visibility = View.GONE }
+                        .start()
+                }, FOCUS_INDICATOR_VISIBLE_MS)
+            }
+            .start()
     }
 
     // =============================================
@@ -274,10 +342,8 @@ class MainActivity : AppCompatActivity() {
 
         if (email != null) {
             binding.tvAuthStatus.text = getString(R.string.label_signed_in, email)
-            binding.btnSignIn.text = getString(R.string.btn_sign_out)
         } else {
             binding.tvAuthStatus.text = getString(R.string.label_not_signed_in)
-            binding.btnSignIn.text = getString(R.string.btn_sign_in)
         }
     }
 
