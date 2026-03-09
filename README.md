@@ -1,6 +1,9 @@
 # Picture Uploader
 
-**バージョン:** 1.0.1
+**バージョン:** 1.0.2
+
+- **1.0.2:** アイコン白背景・余白調整、共有ドライブ選択、ログイン／トークン永続化、シャッター音カスタム、エラー時の再ログイン案内
+- **1.0.1:** 設定画面にログイン／フォルダ選択、README 整理
 
 写真を撮影し、Google Drive（共有ドライブ含む）へ自動アップロードする Android アプリです。  
 野良APKとして運用（Google Play 非配布）を想定しています。
@@ -52,9 +55,16 @@
 - [Google Cloud Console](https://console.cloud.google.com/) でプロジェクトを作成
 - **Drive API** を有効化
 - **OAuth 同意画面** を作成（スコープ: `https://www.googleapis.com/auth/drive`）
-- **Android** 用 OAuth クライアント ID を作成（パッケージ名: `com.pictureuploader`、**リリース用 SHA-1** を登録）
+- **Android** 用 OAuth クライアント ID を作成
+  - パッケージ名: `com.pictureuploader`
+  - **SHA-1 を登録**（下記のどちらか、または両方）
+    - **デバッグ APK** でログインする場合: デバッグキーストアの SHA-1 を登録（例: `keytool -list -v -keystore %USERPROFILE%\.android\debug.keystore -alias androiddebugkey -storepass android` で表示。代表値: `7B:0E:5C:F8:02:50:7F:F3:26:32:FD:65:11:51:EA:2F:92:C2:34:81` は環境により異なります）
+    - **リリース APK** の場合は **リリース用 SHA-1** を登録
 - **Web アプリケーション** 用 OAuth クライアント ID を作成し、表示されたクライアント ID をコピー
 - `app/src/main/java/com/pictureuploader/auth/AuthManager.kt` の `WEB_CLIENT_ID` をその値に置き換え
+
+> ⚠ **「設定に失敗する」「Developer console is not set up correctly」が出る場合**  
+> ログに `package name and SHA-1 certificate fingerprint match what you registered` と出ていれば、**この Android クライアント**に、今インストールしている APK をビルドしたキーストアの **SHA-1** が登録されていません。デバッグなら上記のデバッグ SHA-1 を、リリースならリリース用 SHA-1 を GCP の「認証情報」→ 該当 Android クライアント → 「SHA-1 証明書フィンガープリント」に追加してください。
 
 ### 4. アプリでの設定
 
@@ -79,8 +89,10 @@
 
 ## トラブルシューティング
 
-- **ログインできない**  
-  - リリース APK の場合は **リリース用 SHA-1** が GCP の Android クライアントに登録されているか確認。  
+- **ログインできない / 設定に失敗する**
+  - ログに **「package name and SHA-1 certificate fingerprint match what you registered」** や **「Developer console is not set up correctly」** が出ている場合:
+    - **デバッグ APK** で試しているなら、GCP の Android OAuth クライアントに **デバッグキーストアの SHA-1** を追加する（`keytool -list -v -keystore %USERPROFILE%\.android\debug.keystore -alias androiddebugkey -storepass android` で確認）。
+    - **リリース APK** の場合は **リリース用 SHA-1** が GCP の Android クライアントに登録されているか確認。
   - 任意の Google アカウントで使う場合は、OAuth 同意画面を **本番に公開** する。
 
 - **アップロードが「the name must not be empty: null」で失敗**  

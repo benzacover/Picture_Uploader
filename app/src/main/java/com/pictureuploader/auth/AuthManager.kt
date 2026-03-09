@@ -63,8 +63,9 @@ class AuthManager(private val context: Context) {
     }
 
     /**
-     * SharedPreferences からアカウント・トークンを復元する。
-     * 他画面（設定）でログインした場合やアプリ再起動後に、メイン画面で isSignedIn() が正しく true になるようにする。
+     * SharedPreferences からトークン・メールを復元する。
+     * Credential Manager でログインした場合、端末の AccountManager にアカウントが無いため、
+     * フォルダピッカー等では保存したトークンを使う必要がある。
      */
     fun restoreFromPrefs() {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -112,35 +113,13 @@ class AuthManager(private val context: Context) {
             credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
         ) {
             val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
-            // Drive API の account name はメールである必要がある。id は数値IDを返す場合があるため idToken から email を取得する。
-            val email = getEmailFromIdToken(googleIdTokenCredential.idToken)
-                ?: googleIdTokenCredential.id.trim().ifBlank { null }
-            currentAccountEmail = email
-            persistAccountEmail(email)
+            currentAccountEmail = googleIdTokenCredential.id
+            persistAccountEmail(currentAccountEmail)
             Log.d(TAG, "Signed in as: $currentAccountEmail")
             return currentAccountEmail
         }
         Log.e(TAG, "Unexpected credential type: ${credential.type}")
         return null
-    }
-
-    /**
-     * IDトークン（JWT）の payload から email クレームを取得する。
-     */
-    private fun getEmailFromIdToken(idToken: String?): String? {
-        if (idToken.isNullOrBlank()) return null
-        val parts = idToken.split(".")
-        if (parts.size < 2) return null
-        return try {
-            var payloadB64 = parts[1].replace('-', '+').replace('_', '/')
-            while (payloadB64.length % 4 != 0) payloadB64 += "="
-            val payload = android.util.Base64.decode(payloadB64, android.util.Base64.DEFAULT)
-            val json = org.json.JSONObject(String(payload, Charsets.UTF_8))
-            json.optString("email").trim().ifBlank { null }
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to get email from idToken", e)
-            null
-        }
     }
 
     /**
@@ -183,20 +162,6 @@ class AuthManager(private val context: Context) {
         }
     }
 
-    private fun persistAccessToken(token: String?) {
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY_DRIVE_ACCESS_TOKEN, token)
-            .apply()
-    }
-
-    private fun persistAccountEmail(email: String?) {
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY_ACCOUNT_EMAIL, email)
-            .apply()
-    }
-
     /**
      * 認可画面からの結果を処理する
      */
@@ -233,4 +198,18 @@ class AuthManager(private val context: Context) {
      * Drive認可済みかどうか
      */
     fun hasDriveAccess(): Boolean = accessToken != null
+
+    private fun persistAccessToken(token: String?) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_DRIVE_ACCESS_TOKEN, token)
+            .apply()
+    }
+
+    private fun persistAccountEmail(email: String?) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_ACCOUNT_EMAIL, email)
+            .apply()
+    }
 }

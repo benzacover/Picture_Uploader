@@ -28,12 +28,14 @@
     <string name="msg_folder_id_empty">フォルダIDを入力してください</string>
     <string name="btn_pick_folder">Driveでフォルダを選択</string>
     <string name="folder_picker_my_drive">マイドライブ</string>
+    <string name="folder_picker_shared_drives">共有ドライブ</string>
     <string name="folder_picker_select_this">このフォルダを選択</string>
     <string name="folder_picker_title">アップロード先フォルダを選択</string>
     <string name="folder_picker_loading">読み込み中…</string>
     <string name="folder_picker_error">一覧の取得に失敗しました</string>
     <string name="folder_picker_not_signed_in">ログイン後に選択できます</string>
     <string name="folder_picker_need_drive_auth">Driveへのアクセス許可が必要です。メイン画面で一度ログアウトし、再ログインしてDriveの許可を付与してください。</string>
+    <string name="folder_picker_relogin_hint">共有ドライブ表示には再ログインが必要です。設定で「ログアウト」→「Googleログイン」→ Driveの許可を付与してから再度お試しください。</string>
 
     <!-- Error Messages -->
     <string name="error_auth_failed">Googleアカウントの認証に失敗しました。再度ログインしてください。</string>

@@ -152,21 +152,46 @@ class FolderPickerActivity : AppCompatActivity() {
             } else {
                 val (parentId, parentName) = stack.last()
                 binding.toolbar.title = parentName
-                browser.listFolders(accountEmail, parentId)
-                    .onSuccess { list ->
-                        binding.progress.isVisible = false
-                        val items = listOf(FolderItem.SelectHere(parentId)) + list.map { FolderItem.Folder(it.id, it.name) }
-                        adapter.submitList(items)
-                        binding.recycler.isVisible = true
+                when (parentId) {
+                    DriveFolderBrowser.SHARED_DRIVES_ROOT_ID -> {
+                        // 「共有ドライブ」をタップしたとき: 共有ドライブ一覧を取得
+                        browser.listSharedDrives(accountEmail)
+                            .onSuccess { list ->
+                                binding.progress.isVisible = false
+                                adapter.submitList(list.map { FolderItem.Folder(it.id, it.name) })
+                                binding.recycler.isVisible = true
+                            }
+                            .onFailure { e ->
+                                binding.progress.isVisible = false
+                                val isNameEmptyError = e?.message?.contains("name must not be empty", ignoreCase = true) == true
+                                val msg = if (isNameEmptyError) getString(R.string.folder_picker_relogin_hint)
+                                    else (e?.message ?: getString(R.string.folder_picker_error))
+                                android.util.Log.e("FolderPicker", "listSharedDrives failed", e)
+                                binding.tvEmpty.text = if (isNameEmptyError) getString(R.string.folder_picker_relogin_hint)
+                                    else getString(R.string.folder_picker_error) + "\n" + (e?.javaClass?.simpleName ?: "") + ": " + (e?.message ?: "")
+                                binding.tvEmpty.isVisible = true
+                                Toast.makeText(this@FolderPickerActivity, msg, Toast.LENGTH_LONG).show()
+                            }
                     }
-                    .onFailure { e ->
-                        binding.progress.isVisible = false
-                        val msg = e?.message ?: getString(R.string.folder_picker_error)
-                        android.util.Log.e("FolderPicker", "listFolders failed", e)
-                        binding.tvEmpty.text = getString(R.string.folder_picker_error) + "\n" + (e?.javaClass?.simpleName ?: "") + ": " + (e?.message ?: "")
-                        binding.tvEmpty.isVisible = true
-                        Toast.makeText(this@FolderPickerActivity, msg, Toast.LENGTH_LONG).show()
+                    else -> {
+                        // マイドライブ内または共有ドライブ内のフォルダ一覧
+                        browser.listFolders(accountEmail, parentId)
+                            .onSuccess { list ->
+                                binding.progress.isVisible = false
+                                val items = listOf(FolderItem.SelectHere(parentId)) + list.map { FolderItem.Folder(it.id, it.name) }
+                                adapter.submitList(items)
+                                binding.recycler.isVisible = true
+                            }
+                            .onFailure { e ->
+                                binding.progress.isVisible = false
+                                val msg = e?.message ?: getString(R.string.folder_picker_error)
+                                android.util.Log.e("FolderPicker", "listFolders failed", e)
+                                binding.tvEmpty.text = getString(R.string.folder_picker_error) + "\n" + (e?.javaClass?.simpleName ?: "") + ": " + (e?.message ?: "")
+                                binding.tvEmpty.isVisible = true
+                                Toast.makeText(this@FolderPickerActivity, msg, Toast.LENGTH_LONG).show()
+                            }
                     }
+                }
             }
         }
     }
