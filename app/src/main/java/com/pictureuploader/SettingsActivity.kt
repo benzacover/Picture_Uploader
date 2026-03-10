@@ -22,6 +22,8 @@ class SettingsActivity : AppCompatActivity() {
         const val PREFS_NAME = "picture_uploader_prefs"
         const val KEY_FOLDER_ID = "shared_drive_folder_id"
         const val KEY_ACCOUNT_EMAIL = "account_email"
+        const val KEY_WATCH_BUCKET_ID = "watch_bucket_id"
+        const val KEY_WATCH_BUCKET_DISPLAY_NAME = "watch_bucket_display_name"
     }
 
     private lateinit var binding: ActivitySettingsBinding
@@ -55,6 +57,21 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
+    private val watchFolderPickerLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+            val bucketId = result.data?.getStringExtra(WatchFolderPickerActivity.EXTRA_WATCH_BUCKET_ID) ?: ""
+            val displayName = result.data?.getStringExtra(WatchFolderPickerActivity.EXTRA_WATCH_BUCKET_DISPLAY_NAME) ?: ""
+            getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+                .putString(KEY_WATCH_BUCKET_ID, bucketId)
+                .putString(KEY_WATCH_BUCKET_DISPLAY_NAME, displayName)
+                .apply()
+            updateWatchFolderUI()
+            Toast.makeText(this, getString(R.string.msg_folder_id_saved), Toast.LENGTH_SHORT).show()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivitySettingsBinding.inflate(layoutInflater)
@@ -65,7 +82,18 @@ class SettingsActivity : AppCompatActivity() {
         setupAccountSection()
         loadSettings()
         setupPickFolderButton()
+        setupSelectWatchFolderButton()
         setupSaveButton()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        authManager.restoreFromPrefs()
+        if (authManager.isSignedIn()) {
+            lifecycleScope.launch {
+                authManager.tryRefreshDriveToken()
+            }
+        }
     }
 
     private fun setupToolbar() {
@@ -121,6 +149,23 @@ class SettingsActivity : AppCompatActivity() {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val folderId = prefs.getString(KEY_FOLDER_ID, "") ?: ""
         binding.etFolderId.setText(folderId)
+        updateWatchFolderUI()
+    }
+
+    private fun updateWatchFolderUI() {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val displayName = prefs.getString(KEY_WATCH_BUCKET_DISPLAY_NAME, null)?.trim()?.ifBlank { null }
+        binding.tvWatchFolderCurrent.text = if (displayName.isNullOrEmpty()) {
+            getString(R.string.label_watch_folder_none)
+        } else {
+            getString(R.string.label_watch_folder_current, displayName)
+        }
+    }
+
+    private fun setupSelectWatchFolderButton() {
+        binding.btnSelectWatchFolder.setOnClickListener {
+            watchFolderPickerLauncher.launch(WatchFolderPickerActivity.createIntent(this))
+        }
     }
 
     private fun setupPickFolderButton() {

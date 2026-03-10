@@ -53,4 +53,14 @@
     <string name="msg_capture_success">撮影完了。アップロードを開始します。</string>
     <string name="msg_sign_in_success">ログインしました。</string>
     <string name="msg_sign_out_success">ログアウトしました。</string>
+
+    <!-- Watch folder (external camera upload) -->
+    <string name="settings_watch_folder">監視するフォルダ</string>
+    <string name="settings_watch_folder_desc">標準カメラアプリで撮影した写真を保存するフォルダを選ぶと、そのフォルダに保存された写真を自動で Google Drive にアップロードします。</string>
+    <string name="label_watch_folder_none">監視しない</string>
+    <string name="label_watch_folder_current">選択中: %s</string>
+    <string name="btn_select_watch_folder">フォルダを選択</string>
+    <string name="watch_folder_picker_title">監視するフォルダを選択</string>
+    <string name="watch_folder_picker_loading">読み込み中…</string>
+    <string name="watch_folder_picker_permission_required">フォルダ一覧を表示するにはストレージの許可が必要です。</string>
 </resources>

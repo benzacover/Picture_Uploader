@@ -106,6 +106,12 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         authManager.restoreFromPrefs()
         updateAuthUI()
+        // トークン期限切れ対策: フォアグラウンド復帰時に可能ならサイレントで更新
+        if (authManager.isSignedIn()) {
+            lifecycleScope.launch {
+                authManager.tryRefreshDriveToken()
+            }
+        }
     }
 
     // =============================================

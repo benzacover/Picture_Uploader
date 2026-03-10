@@ -1,6 +1,7 @@
 package com.pictureuploader.drive
 
 import android.content.Context
+import android.net.Uri
 import android.util.Log
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.client.http.FileContent
@@ -17,6 +18,7 @@ import com.pictureuploader.util.UploadFailureLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
 import java.net.SocketTimeoutException
 import kotlin.math.min
@@ -138,6 +140,47 @@ class DriveUploader(private val context: Context) {
             "No result after $MAX_RETRIES attempts",
             retriable = true
         )
+    }
+
+    /**
+     * Content URI（MediaStore 等）で指定された画像を一時ファイルにコピーしてから
+     * 既存の uploadFile で Google Drive にアップロードする。
+     * 呼び出し側はアップロード後に一時ファイルを気にしなくてよい。
+     *
+     * @return Success(driveFileId) または Failure
+     */
+    suspend fun uploadFromContentUri(
+        contentUri: String,
+        accountEmail: String,
+        folderId: String
+    ): UploadResult = withContext(Dispatchers.IO) {
+        val uri = Uri.parse(contentUri)
+        val inputStream = context.contentResolver.openInputStream(uri)
+        if (inputStream == null) {
+            Log.e(TAG, "Cannot open content URI: $contentUri")
+            return@withContext UploadResult.Failure(
+                UploadFailureReason.FILE_NOT_FOUND,
+                "Cannot open content URI",
+                retriable = false
+            )
+        }
+        val tempFile = File(context.cacheDir, "external_upload_${System.currentTimeMillis()}.jpg")
+        try {
+            FileOutputStream(tempFile).use { out ->
+                inputStream.use { it.copyTo(out) }
+            }
+            if (tempFile.length() == 0L) {
+                Log.e(TAG, "Copied file is empty: $contentUri")
+                return@withContext UploadResult.Failure(
+                    UploadFailureReason.FILE_UNREADABLE,
+                    "File is empty",
+                    retriable = false
+                )
+            }
+            uploadFile(tempFile.absolutePath, accountEmail, folderId)
+        } finally {
+            tempFile.delete()
+        }
     }
 
     private fun executeUpload(

@@ -85,6 +85,38 @@
                 android:text="@string/btn_pick_folder"
                 style="@style/Widget.Material3.Button.TonalButton" />
 
+            <!-- 監視するフォルダ（標準カメラの保存先） -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:text="@string/settings_watch_folder"
+                android:textAppearance="?attr/textAppearanceTitleMedium"
+                android:paddingBottom="4dp" />
+
+            <TextView
+                android:id="@+id/tvWatchFolderDesc"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_watch_folder_desc"
+                android:textSize="14sp"
+                android:paddingBottom="4dp" />
+
+            <TextView
+                android:id="@+id/tvWatchFolderCurrent"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/label_watch_folder_none"
+                android:textSize="14sp"
+                android:paddingBottom="8dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnSelectWatchFolder"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/btn_select_watch_folder"
+                style="@style/Widget.Material3.Button.TonalButton" />
+
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnSave"
                 android:layout_width="match_parent"

@@ -179,6 +179,35 @@ class AuthManager(private val context: Context) {
     }
 
     /**
+     * 保存済みのDriveアクセストークンを更新する。
+     * アプリがフォアグラウンドにあるときに呼ぶ。AuthorizationClient がキャッシュから
+     * 新しいトークンを返せれば、ユーザー操作なしで更新する。
+     *
+     * @return トークンを更新できた場合 true、要再ログイン・要同意の場合は false
+     */
+    suspend fun tryRefreshDriveToken(): Boolean {
+        if (currentAccountEmail.isNullOrBlank()) return false
+        return try {
+            val authRequest = AuthorizationRequest.builder()
+                .setRequestedScopes(listOf(Scope(DRIVE_SCOPE)))
+                .build()
+            val result = authorizationClient.authorize(authRequest).await()
+            if (!result.hasResolution() && !result.accessToken.isNullOrBlank()) {
+                accessToken = result.accessToken
+                persistAccessToken(result.accessToken)
+                Log.d(TAG, "Drive token refreshed silently")
+                true
+            } else {
+                Log.d(TAG, "Drive token refresh needs resolution (token expired or consent revoked)")
+                false
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Drive token refresh failed", e)
+            false
+        }
+    }
+
+    /**
      * サインアウト
      */
     fun signOut() {
