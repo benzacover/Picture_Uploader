@@ -20,6 +20,9 @@ captures/
 upload_failures.log
 upload_failures_emulated.log
 
+# デバッグ用スクリーンショット（プロジェクトルート）
+icon_*.png
+
 # OS
 .DS_Store
 Thumbs.db
